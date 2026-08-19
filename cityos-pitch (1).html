@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CityOS — питч</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --night:#080B18;
+    --dawn:#141A33;
+    --day:#FFFFFF;
+    --ink:#10131A;
+    --ink-light:#F4F6FC;
+    --ink-soft-dark:#8891B8;
+    --ink-soft-light:#5B6270;
+    --accent:#2F4BFF;
+    --accent-soft:#EAEEFF;
+    --gold:#FFB13C;
+    --line:#EEF0F3;
+    --panel:#F7F8FA;
+    --bg: var(--night);
+    --fg: var(--ink-light);
+    --fg-soft: var(--ink-soft-dark);
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{ scroll-behavior:smooth; }
+  body{
+    font-family:'Inter', -apple-system, sans-serif;
+    background:var(--night);
+    color:var(--fg);
+    overflow-x:hidden;
+  }
+
+  .display{ font-family:'Unbounded', sans-serif; }
+  .mono{ font-family:'JetBrains Mono', monospace; }
+
+  /* ===== Fixed sky backdrop — the signature element ===== */
+  /* Colors, opacities and positions below are all set inline via JS on every scroll frame,
+     driven continuously by scroll progress — there is no phase-switch, so there is nothing to snap. */
+  .sky{
+    position:fixed; inset:0; z-index:0;
+    background:var(--night);
+    overflow:hidden;
+  }
+  .celestial{ position:absolute; top:8%; right:10%; width:120px; height:120px; }
+  .moon{
+    position:absolute; width:64px; height:64px; border-radius:50%;
+    background:radial-gradient(circle at 38% 34%, #FFFFFF 0%, #E4E9F7 42%, #C9D2E8 78%, #B7C1DC 100%);
+    box-shadow:inset -12px 7px 16px -4px rgba(20,26,54,0.35), 0 0 30px 6px rgba(214,221,244,0.4);
+    opacity:1;
+  }
+  .sun{
+    position:absolute; width:70px; height:70px; border-radius:50%;
+    background:radial-gradient(circle at 36% 32%, #FFFFFF 0%, #FFEEC9 14%, #FFD98A 34%, #FFC157 58%, #FCA83A 82%, #F5921E 100%);
+    box-shadow:0 0 24px 4px rgba(255,201,110,0.6), 0 0 60px 16px rgba(255,177,60,0.28);
+    opacity:0;
+  }
+  .star{ position:absolute; border-radius:50%; background:#C9D2E8; }
+  .moonlight{
+    position:absolute; inset:0;
+    background:radial-gradient(circle at 82% 12%, rgba(214,221,244,0.16) 0%, rgba(202,210,236,0.07) 22%, rgba(196,204,230,0) 50%);
+    opacity:1;
+  }
+
+  .skyline{ position:absolute; left:0; right:0; bottom:0; height:26vh; min-height:180px; }
+  .skyline svg{ width:100%; height:100%; display:block; }
+  .bldg{ fill:#141A33; }
+  .window{ fill:#232B52; }
+  .window.lit{ fill:#FFD37A; }
+
+  /* Text color rides the same continuous scroll progress as the sky (see JS) */
+  h2.section-title, p.lede, .name, .cap{ transition:color 0.4s linear; }
+
+  /* ===== Content layer ===== */
+  main{ position:relative; z-index:2; }
+  section{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:100px 24px; text-align:center; position:relative;
+  }
+
+  .eyebrow{
+    font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent);
+    margin-bottom:20px; opacity:0.9;
+  }
+  h1.hero-title{ font-weight:900; font-size:clamp(56px,12vw,140px); line-height:0.95; letter-spacing:-0.02em; color:var(--fg); }
+  h2.section-title{ font-weight:800; font-size:clamp(30px,5.5vw,58px); line-height:1.08; letter-spacing:-0.01em; max-width:900px; color:var(--fg); }
+  p.lede{ font-size:clamp(16px,2vw,20px); line-height:1.6; color:var(--fg-soft); max-width:640px; margin-top:22px; }
+
+  .reveal{ opacity:0; transform:translateY(28px); transition:opacity .9s ease, transform .9s ease; }
+  .reveal.in{ opacity:1; transform:translateY(0); }
+  .reveal.d1{ transition-delay:.1s; } .reveal.d2{ transition-delay:.25s; } .reveal.d3{ transition-delay:.4s; }
+
+  /* ---- Hero ---- */
+  #hero{ min-height:100vh; }
+  .logo-mark{ width:64px; height:64px; margin-bottom:28px; }
+  .scroll-cue{
+    position:absolute; bottom:44px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    color:var(--fg-soft); font-size:11px; letter-spacing:0.14em;
+  }
+  .scroll-cue svg{ width:16px; height:16px; stroke:var(--fg-soft); animation:bob 1.8s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(6px);} }
+
+  /* ---- Problem: drifting chips ---- */
+  .chip-field{ position:relative; width:100%; max-width:720px; height:180px; margin-top:36px; }
+  .chip{
+    position:absolute; padding:9px 16px; border-radius:999px; border:1px solid rgba(255,255,255,0.14);
+    background:rgba(255,255,255,0.04); font-size:13px; color:var(--fg-soft);
+    transition:transform 1.4s ease, opacity 1.4s ease;
+  }
+  .chip-field.in .chip{ opacity:0.85; }
+
+  /* ---- Idea: say/show/do ---- */
+  .formula{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:18px; margin-top:8px; }
+  .formula-word{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .formula-word .word{ font-weight:800; font-size:clamp(34px,6vw,64px); }
+  .formula-word .cap{ font-size:14px; color:var(--fg-soft); max-width:220px; line-height:1.4; }
+  .formula-arrow{ color:var(--accent); font-size:28px; opacity:.7; }
+
+  /* ---- Demo ---- */
+  #demo{ padding-top:60px; padding-bottom:60px; }
+  .demo-wrap{ display:flex; flex-direction:column; align-items:center; gap:40px; }
+  .phone-frame{
+    width:280px; height:588px; background:#000; border-radius:40px; padding:8px;
+    box-shadow:0 40px 90px -30px rgba(0,0,0,0.55), 0 10px 30px -10px rgba(0,0,0,0.4);
+    transform:perspective(1400px) rotateY(-22deg) rotateX(6deg) scale(0.92);
+    transition:transform 1.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  .phone-frame.in{ transform:perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1); }
+  .phone-screen{ width:100%; height:100%; border-radius:32px; overflow:hidden; background:#fff; position:relative; }
+  #demoHost{ width:375px; height:812px; transform:scale(0.7466); transform-origin:top left; }
+
+  /* ---- Skeleton scope cards ---- */
+  .card-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; max-width:640px; width:100%; margin-top:44px; }
+  .scope-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:24px 20px;
+    text-align:left; display:flex; flex-direction:column; gap:10px;
+  }
+  .scope-card .icon{ width:34px; height:34px; border-radius:10px; background:var(--accent-soft); display:flex; align-items:center; justify-content:center; }
+  .scope-card .icon svg{ width:17px; height:17px; stroke:var(--accent); }
+  .scope-card .name{ font-weight:700; font-size:15px; color:var(--ink); }
+  .scope-card .desc{ font-size:12.5px; color:var(--ink-soft-light); line-height:1.5; }
+
+  /* ---- Team ---- */
+  .team-grid{ display:flex; flex-wrap:wrap; justify-content:center; gap:18px; max-width:680px; margin-top:44px; }
+  .team-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:28px 26px;
+    width:260px; text-align:left;
+  }
+  .team-card .avatar{ width:48px; height:48px; border-radius:14px; background:linear-gradient(135deg,var(--accent),#6C8CFF); margin-bottom:16px; }
+  .team-card .role{ font-family:'JetBrains Mono', monospace; font-size:10.5px; letter-spacing:0.06em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+  .team-card .name{ font-weight:700; font-size:17px; color:var(--ink); margin-bottom:8px; }
+  .team-card .focus{ font-size:12.5px; color:var(--ink-soft-light); line-height:1.5; }
+
+  /* ---- Closing ---- */
+  #closing .mono-tag{ margin-bottom:0; }
+  .closing-mark{ width:56px; height:56px; margin-top:32px; opacity:0.85; }
+
+  /* ---- Timeline (used by the scenario walkthrough and the roadmap) ---- */
+  .timeline{ display:flex; flex-wrap:wrap; justify-content:center; max-width:920px; width:100%; margin-top:48px; }
+  .timeline-step{
+    flex:1; min-width:150px; display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:0 10px 18px; position:relative;
+  }
+  .timeline-step::before{
+    content:''; position:absolute; top:15px; left:-50%; width:100%; height:2px; background:var(--line); z-index:0;
+  }
+  .timeline-step:first-child::before{ display:none; }
+  .timeline-dot{
+    width:32px; height:32px; border-radius:50%; background:var(--accent); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono', monospace; font-size:9.5px; font-weight:700;
+    position:relative; z-index:1; margin-bottom:16px; flex-shrink:0;
+  }
+  .timeline-step.now .timeline-dot{ background:var(--gold); box-shadow:0 0 0 5px rgba(255,177,60,0.22); }
+  .timeline-content{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; width:100%;
+  }
+  .timeline-label{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.06em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+  .timeline-title{ font-weight:700; font-size:14.5px; color:var(--ink); margin-bottom:7px; }
+  .timeline-desc{ font-size:12px; color:var(--ink-soft-light); line-height:1.5; max-width:170px; }
+  .now-tag{
+    display:inline-block; margin-top:8px; padding:3px 9px; border-radius:999px; background:#FFF4E1; color:#B7791F;
+    font-family:'JetBrains Mono', monospace; font-size:9px; letter-spacing:0.05em; text-transform:uppercase;
+  }
+  @media (max-width:640px){
+    .timeline{ flex-direction:column; align-items:flex-start; gap:16px; }
+    .timeline-step{ flex-direction:row; text-align:left; align-items:flex-start; min-width:0; width:100%; padding:0; }
+    .timeline-step::before{ display:none; }
+    .timeline-dot{ margin-bottom:0; margin-right:14px; margin-top:2px; }
+    .timeline-content{ align-items:flex-start; text-align:left; }
+    .timeline-desc{ max-width:none; }
+  }
+
+  h2.section-title{ color:var(--fg); }
+  p.lede{ color:var(--fg-soft); }
+  .name{ color:var(--ink); }
+
+  @media (max-width:640px){
+    .card-grid{ grid-template-columns:1fr; }
+    .phone-frame{ width:230px; height:483px; }
+    #demoHost{ transform:scale(0.613); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+
+  /* ---- Voice demo section ---- */
+  #voicedemo .phone-frame{
+    width:320px; height:672px;
+    transform:perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1);
+  }
+  #voicedemo .phone-screen{ background:#fff; }
+  #vdHost{ width:375px; height:812px; transform:scale(0.8533); transform-origin:top left; }
+  @media (max-width:640px){
+    #voicedemo .phone-frame{ width:250px; height:525px; }
+    #vdHost{ transform:scale(0.6667); }
+  }
+  .voice-hint{
+    margin-top:16px; font-size:12px; color:var(--fg-soft); max-width:280px; text-align:center;
+  }
+</style>
+<script>
+  const DEMO_CSS = ":host{\n    --ink:#10131A; --ink-soft:#5B6270; --ink-faint:#9AA0AC; --line:#EEF0F3;\n    --accent:#2F4BFF; --accent-soft:#EAEEFF; --bg:#FFFFFF; --panel:#F7F8FA;\n    --green:#22C55E; --sun:#FFB13C; --moon:#C9D2E8;\n    display:block; position:relative;\n    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;\n    color:#10131A; line-height:normal; text-align:left;\n  }\n  *{box-sizing:border-box; margin:0; padding:0;}\n  .phone{\n    width:375px; height:812px; background:var(--bg); border-radius:52px;\n    box-shadow:0 1px 0 rgba(255,255,255,0.6) inset, 0 40px 80px -30px rgba(16,19,26,0.35), 0 10px 30px -10px rgba(16,19,26,0.25);\n    border:10px solid #14161C; position:absolute; top:0; left:0; overflow:hidden;\n    transform-origin:top left;\n  }\n  .notch{ position:absolute; top:10px; left:50%; transform:translateX(-50%); width:120px; height:26px; background:#14161C; border-radius:16px; z-index:30; }\n\n  /* ============ SPLASH ============ */\n  .splash{\n    position:absolute; inset:0; z-index:25; background:var(--bg);\n    display:flex; flex-direction:column; align-items:center; justify-content:center;\n    overflow:hidden; transition:opacity .6s ease, transform .6s ease, background .5s ease;\n  }\n  .splash.hide{ opacity:0; transform:scale(1.03); pointer-events:none; }\n  .splash.night{ background:#0A0E1D; }\n\n  /* Celestial layer */\n  .celestial-layer{ position:absolute; top:0; left:0; right:0; height:56%; z-index:1; overflow:hidden; }\n\n  .sun{\n    position:absolute; top:54px; right:54px; width:54px; height:54px; border-radius:50%;\n    background:radial-gradient(circle at 36% 32%, #FFFFFF 0%, #FFEEC9 14%, #FFD98A 34%, #FFC157 58%, #FCA83A 82%, #F5921E 100%);\n    box-shadow:\n      0 0 18px 3px rgba(255,201,110,0.65),\n      0 0 42px 12px rgba(255,177,60,0.32),\n      0 0 88px 28px rgba(255,177,60,0.14);\n    opacity:0; animation:celestialIn 1s ease forwards; animation-delay:.2s;\n    z-index:2;\n  }\n  /* A soft, blurred halo behind the disc — reads as natural glow rather than sharp cartoon rays */\n  .sun-halo{\n    position:absolute; top:14px; right:14px; width:94px; height:94px; border-radius:50%;\n    background:radial-gradient(circle, rgba(255,214,140,0.35) 0%, rgba(255,193,90,0.16) 42%, rgba(255,177,60,0) 72%);\n    filter:blur(3px);\n    opacity:0; animation:celestialIn 1.3s ease forwards; animation-delay:.05s;\n    z-index:1; pointer-events:none;\n  }\n\n  .moon{\n    position:absolute; top:56px; right:58px; width:46px; height:46px; border-radius:50%;\n    background:radial-gradient(circle at 38% 34%, #FFFFFF 0%, #E4E9F7 42%, #C9D2E8 78%, #B7C1DC 100%);\n    box-shadow:\n      inset -10px 6px 14px -4px rgba(20,26,54,0.35),\n      0 0 24px 4px rgba(214,221,244,0.45),\n      0 0 60px 20px rgba(180,190,224,0.18);\n    opacity:0; animation:celestialIn 1s ease forwards; animation-delay:.2s;\n    z-index:2;\n  }\n  /* Soft light falling from the moon — a full-bleed radial glow so it can never show a clipped edge */\n  .moonlight{\n    position:absolute; inset:0; z-index:0; pointer-events:none;\n    background:radial-gradient(circle at 79% 11%,\n      rgba(214,221,244,0.24) 0%,\n      rgba(202,210,236,0.12) 20%,\n      rgba(196,204,230,0.045) 38%,\n      rgba(196,204,230,0) 58%);\n    opacity:0; animation:celestialIn 1.6s ease forwards; animation-delay:.15s;\n  }\n\n  @keyframes celestialIn{ to{ opacity:1; } }\n\n  /* Daytime ambience: outlined clouds that drift across the sky */\n  .cloud{\n    position:absolute; left:-90px; z-index:1; pointer-events:none; opacity:0;\n    animation:cloudFadeIn 1s ease forwards, cloudDrift linear infinite;\n  }\n  .cloud svg{ width:100%; height:100%; display:block; filter:drop-shadow(0 4px 8px rgba(130,150,200,0.18)); }\n  @keyframes cloudFadeIn{ to{ opacity:1; } }\n  @keyframes cloudDrift{ from{ transform:translateX(0); } to{ transform:translateX(520px); } }\n\n  /* Daytime ambience: a small flock of birds flying across */\n  .bird-fly{ position:absolute; left:-34px; z-index:1; pointer-events:none; animation:birdFly linear infinite; opacity:0; animation-fill-mode:forwards; }\n  .bird-fly.show{ opacity:1; }\n  @keyframes birdFly{ from{ transform:translate(0,0); } to{ transform:translate(440px,-18px); } }\n  .bird{ position:relative; width:20px; height:10px; }\n  .bird .wing{\n    position:absolute; top:4px; width:11px; height:2px; border-radius:2px;\n    background:#4A5578; opacity:0.55;\n  }\n  .bird .wing.l{ left:0; transform-origin:100% 50%; animation:flapL .46s ease-in-out infinite alternate; }\n  .bird .wing.r{ right:0; transform-origin:0% 50%; animation:flapR .46s ease-in-out infinite alternate; }\n  @keyframes flapL{ from{ transform:rotate(-16deg); } to{ transform:rotate(-52deg); } }\n  @keyframes flapR{ from{ transform:rotate(16deg); } to{ transform:rotate(52deg); } }\n\n  .star{\n    position:absolute; border-radius:50%; background:#C9D2E8; opacity:0;\n    animation:twinkleStar 3s ease-in-out infinite;\n  }\n  @keyframes twinkleStar{\n    0%,100%{ opacity:0.15; transform:scale(0.7); }\n    50%{ opacity:1; transform:scale(1); }\n  }\n\n  /* Skyline */\n  .skyline-wrap{\n    position:absolute; left:0; right:0; bottom:0; height:172px; z-index:1;\n  }\n  .skyline{ width:100%; height:100%; display:block; }\n  .bldg{ fill:#DCE3F7; transition:fill .5s ease; }\n  .splash.night .bldg{ fill:#171D38; }\n  .window{ fill:#F5F7FC; }\n  .window.lit{ fill:#FFD37A; }\n  .splash.day .window.lit{ fill:#EAF0FF; }\n  .splash.night .window{ fill:#232B52; }\n  .splash.night .window.lit{ fill:#FFD37A; filter:drop-shadow(0 0 2.5px rgba(255,211,122,0.75)); }\n  .bldg-group{ opacity:0; animation:bldgRise .8s cubic-bezier(0.16,1,0.3,1) forwards; }\n  @keyframes bldgRise{ from{ opacity:0; transform:translateY(18px);} to{ opacity:1; transform:translateY(0);} }\n\n  .skyline-fade{\n    position:absolute; left:0; right:0; bottom:0; height:172px; z-index:2;\n    background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 55%, rgba(255,255,255,0.9) 88%, #fff 100%);\n    pointer-events:none; transition:background .5s ease;\n  }\n  .splash.night .skyline-fade{\n    background:linear-gradient(180deg, rgba(10,14,29,0) 0%, rgba(10,14,29,0) 55%, rgba(10,14,29,0.9) 88%, #0A0E1D 100%);\n  }\n\n  .mark-wrap{ position:relative; z-index:3; display:flex; flex-direction:column; align-items:center; gap:16px; margin-bottom:26px; }\n\n  /* New logo: open ring (C for City) with a small skyline + beacon nested in the gap */\n  .logo-mark{\n    width:82px; height:82px; position:relative;\n    opacity:0; transform:scale(0.72) rotate(-8deg); \n    animation:markIn .75s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay:.1s;\n  }\n  @keyframes markIn{ to{ opacity:1; transform:scale(1) rotate(0deg); } }\n  .logo-mark svg{ width:100%; height:100%; overflow:visible; }\n  .logo-ring{\n    fill:none; stroke:url(#ringGrad); stroke-width:7.5; stroke-linecap:round;\n    stroke-dasharray:150 200; stroke-dashoffset:-8;\n  }\n  .logo-bar{ fill:#2338C7; }\n  .logo-bar.hero{ fill:url(#barGrad); }\n  .logo-beacon{ fill:var(--accent); }\n  .logo-beacon-pulse{\n    fill:none; stroke:var(--accent); stroke-width:1.5; opacity:0;\n    animation:beaconPulse 2.2s ease-out infinite; animation-delay:1s;\n  }\n  @keyframes beaconPulse{\n    0%{ opacity:.6; transform:scale(1); }\n    100%{ opacity:0; transform:scale(2.6); }\n  }\n\n  .wordmark-big{\n    font-weight:800; font-size:26px; letter-spacing:-0.01em; color:var(--ink);\n    opacity:0; transform:translateY(8px); animation:fadeUp .6s ease forwards; animation-delay:.55s;\n    transition:color .5s ease;\n  }\n  .splash.night .wordmark-big{ color:#F3F5FC; }\n  .tagline-splash{\n    font-size:14px; color:var(--ink-soft); letter-spacing:0.01em; text-align:center;\n    opacity:0; transform:translateY(8px); animation:fadeUp .6s ease forwards; animation-delay:.85s;\n    transition:color .5s ease;\n  }\n  .splash.night .tagline-splash{ color:#8891B8; }\n  @keyframes fadeUp{ to{ opacity:1; transform:translateY(0); } }\n\n  .loading-dots{\n    position:absolute; bottom:56px; left:50%; transform:translateX(-50%);\n    display:flex; gap:6px; z-index:3;\n    opacity:0; animation:fadeUp .5s ease forwards; animation-delay:1.15s;\n  }\n  .loading-dots span{ width:6px; height:6px; border-radius:50%; background:#C7CDDA; animation:dotPulse 1.1s ease-in-out infinite; }\n  .loading-dots span:nth-child(2){ animation-delay:.15s; }\n  .loading-dots span:nth-child(3){ animation-delay:.3s; }\n  @keyframes dotPulse{ 0%,100%{ background:#C7CDDA; transform:scale(1);} 50%{ background:var(--accent); transform:scale(1.3);} }\n  .splash.night .loading-dots span{ background:#2C3358; }\n\n  @media (prefers-reduced-motion: reduce){\n    .logo-mark, .wordmark-big, .tagline-splash, .loading-dots, .bldg-group, .sun, .moon, .sun-ray, .star, .logo-beacon-pulse{\n      animation:none !important; opacity:1 !important; transform:none !important;\n    }\n  }\n\n  /* ============ HOME (v2) ============ */\n  .home{\n    position:relative; z-index:5; width:100%; height:100%; background:var(--bg);\n    display:flex; flex-direction:column; opacity:0; transform:translateY(10px);\n    transition:opacity .6s ease, transform .6s ease;\n  }\n  .home.show{ opacity:1; transform:translateY(0); }\n  .statusbar{ display:flex; justify-content:space-between; align-items:center; padding:20px 26px 0; font-family:'SF Mono', 'Menlo', 'Consolas', monospace; font-size:12.5px; color:var(--ink); flex-shrink:0; }\n  .topbar{ display:flex; justify-content:space-between; align-items:center; padding:14px 22px 12px; flex-shrink:0; }\n  .wordmark{ display:flex; flex-direction:column; gap:2px; }\n  .wordmark .name{ font-weight:800; font-size:19px; letter-spacing:-0.02em; color:var(--ink); }\n  .wordmark .status{ font-family:'SF Mono', 'Menlo', 'Consolas', monospace; font-size:10px; letter-spacing:0.06em; color:var(--ink-soft); display:flex; align-items:center; gap:6px; }\n  .dot-live{ width:5px; height:5px; border-radius:50%; background:var(--green); box-shadow:0 0 0 3px rgba(34,197,94,0.15); }\n  .profile-tab{ width:40px; height:40px; border-radius:14px; background:var(--panel); display:flex; align-items:center; justify-content:center; border:1px solid var(--line); }\n  .profile-tab .avatar{ width:20px; height:20px; border-radius:6px; background:linear-gradient(135deg, var(--accent), #6C8CFF); }\n  .content{ flex:1; overflow-y:auto; padding:4px 22px 8px; display:flex; flex-direction:column; gap:22px; }\n  .content::-webkit-scrollbar{ display:none; }\n  .goal-box{ background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:16px 16px 14px; }\n  .goal-eyebrow{ font-family:'SF Mono', 'Menlo', 'Consolas', monospace; font-size:10px; letter-spacing:0.08em; color:var(--accent); text-transform:uppercase; margin-bottom:8px; display:block; }\n  .goal-text{ font-size:15px; color:var(--ink-faint); line-height:1.4; margin-bottom:14px; }\n  .goal-actions{ display:flex; align-items:center; gap:8px; }\n  .goal-mic{ width:36px; height:36px; border-radius:12px; background:var(--bg); display:flex; align-items:center; justify-content:center; border:1px solid var(--line); flex-shrink:0; }\n  .goal-mic svg{ width:16px; height:16px; stroke:var(--ink); }\n  .goal-send{ flex:1; height:36px; border-radius:12px; background:var(--accent); display:flex; align-items:center; justify-content:center; gap:6px; color:#fff; font-size:13px; font-weight:600; }\n  .goal-send svg{ width:14px; height:14px; stroke:#fff; }\n  .section-head{ display:flex; align-items:baseline; justify-content:space-between; }\n  .section-title{ font-size:15px; font-weight:700; color:var(--ink); letter-spacing:-0.01em; }\n  .section-link{ font-family:'SF Mono', 'Menlo', 'Consolas', monospace; font-size:10px; color:var(--accent); letter-spacing:0.02em; }\n  .cases-row{ display:flex; gap:10px; overflow-x:auto; padding-bottom:2px; margin-top:10px; }\n  .cases-row::-webkit-scrollbar{ display:none; }\n  .case-card{ flex:0 0 auto; width:158px; background:var(--bg); border:1px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:8px; }\n  .case-tag{ align-self:flex-start; font-family:'SF Mono', 'Menlo', 'Consolas', monospace; font-size:9px; letter-spacing:0.04em; padding:3px 7px; border-radius:6px; text-transform:uppercase; }\n  .case-tag.progress{ background:var(--accent-soft); color:var(--accent); }\n  .case-tag.wait{ background:#FFF4E5; color:#B7791F; }\n  .case-tag.done{ background:#E7F9EE; color:#1A9A52; }\n  .case-title{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.3; }\n  .case-sub{ font-size:10.5px; color:var(--ink-soft); }\n  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }\n  .tile{ background:var(--bg); border:1px solid var(--line); border-radius:18px; padding:14px; display:flex; flex-direction:column; gap:24px; min-height:96px; }\n  .tile-icon{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; }\n  .tile-icon svg{ width:16px; height:16px; }\n  .tile-name{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.25; }\n  .tile.services .tile-icon{ background:#EAEEFF; } .tile.services svg{ stroke:#2F4BFF; }\n  .tile.edu .tile-icon{ background:#FFF0E8; } .tile.edu svg{ stroke:#E0742A; }\n  .tile.docs .tile-icon{ background:#E7F9EE; } .tile.docs svg{ stroke:#1A9A52; }\n  .tile.orders .tile-icon{ background:#F3EAFF; } .tile.orders svg{ stroke:#7C3AED; }\n  .inbox-strip{ display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:12px 14px; margin-top:2px; }\n  .inbox-icon{ width:30px; height:30px; border-radius:9px; background:var(--bg); display:flex; align-items:center; justify-content:center; flex-shrink:0; }\n  .inbox-icon svg{ width:14px; height:14px; stroke:var(--ink); }\n  .inbox-text{ font-size:12px; color:var(--ink-soft); line-height:1.35; flex:1; }\n  .inbox-text b{ color:var(--ink); font-weight:600; }\n  .inbox-dot{ width:7px; height:7px; border-radius:50%; background:var(--accent); flex-shrink:0; }\n  .controls{ display:flex; align-items:center; justify-content:center; gap:26px; padding:10px 0 40px; flex-shrink:0; background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.96) 34%, #fff 100%); }\n  .side-btn{ width:50px; height:50px; border-radius:50%; background:var(--bg); display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px -4px rgba(16,19,26,0.18), 0 2px 6px -2px rgba(16,19,26,0.1); border:1px solid rgba(16,19,26,0.04); }\n  .side-btn svg{ width:19px; height:19px; stroke:var(--ink); }\n  .ai-btn{ position:relative; width:72px; height:72px; border-radius:50%; background:radial-gradient(circle at 32% 28%, #5470FF, var(--accent) 65%); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px -6px rgba(47,75,255,0.55), 0 4px 10px -2px rgba(47,75,255,0.35); }\n  .ai-btn svg{ width:26px; height:26px; stroke:#fff; z-index:2; position:relative; }\n  .ring{ position:absolute; inset:-8px; border-radius:50%; border:1.5px solid rgba(47,75,255,0.35); animation:pulse 2.4s cubic-bezier(0.4,0,0.2,1) infinite; }\n  .ring.r2{ animation-delay:.8s; } .ring.r3{ animation-delay:1.6s; }\n  @keyframes pulse{ 0%{ transform:scale(1); opacity:0.55; } 100%{ transform:scale(1.55); opacity:0; } }\n  .home-indicator{ position:absolute; bottom:9px; left:50%; transform:translateX(-50%); width:120px; height:4px; border-radius:3px; background:rgba(16,19,26,0.55); z-index:31; }\n";
+  const DEMO_HTML = "<div class=\"phone\" id=\"phone\">\n    <div class=\"notch\"></div>\n\n    <!-- SPLASH -->\n    <div class=\"splash\" id=\"splash\">\n\n      <div class=\"celestial-layer\" id=\"celestialLayer\"></div>\n\n      <div class=\"skyline-wrap\">\n        <svg class=\"skyline\" viewBox=\"0 0 375 172\" preserveAspectRatio=\"none\" id=\"skylineSvg\">\n          <defs>\n            <clipPath id=\"clipB1\"><rect x=\"0\" y=\"92\" width=\"36\" height=\"80\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB2\"><rect x=\"34\" y=\"52\" width=\"48\" height=\"120\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB3\"><rect x=\"80\" y=\"108\" width=\"30\" height=\"64\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB4\"><rect x=\"108\" y=\"30\" width=\"54\" height=\"142\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB5\"><rect x=\"160\" y=\"78\" width=\"38\" height=\"94\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB6\"><rect x=\"196\" y=\"46\" width=\"62\" height=\"126\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB7\"><rect x=\"256\" y=\"100\" width=\"34\" height=\"72\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB8\"><rect x=\"288\" y=\"58\" width=\"52\" height=\"114\" rx=\"2\"/></clipPath>\n            <clipPath id=\"clipB9\"><rect x=\"342\" y=\"96\" width=\"33\" height=\"76\" rx=\"2\"/></clipPath>\n          </defs>\n          <!-- buildings populated with rects + windows via JS for consistent detail -->\n          <g id=\"buildingsRoot\"></g>\n        </svg>\n      </div>\n      <div class=\"skyline-fade\"></div>\n\n      <div class=\"mark-wrap\">\n        <div class=\"logo-mark\">\n          <svg viewBox=\"0 0 82 82\">\n            <defs>\n              <linearGradient id=\"ringGrad\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">\n                <stop offset=\"0\" stop-color=\"#5470FF\"/>\n                <stop offset=\"1\" stop-color=\"#2338C7\"/>\n              </linearGradient>\n              <linearGradient id=\"barGrad\" x1=\"0\" y1=\"1\" x2=\"0\" y2=\"0\">\n                <stop offset=\"0\" stop-color=\"#2338C7\"/>\n                <stop offset=\"1\" stop-color=\"#5470FF\"/>\n              </linearGradient>\n            </defs>\n            <!-- open ring reads as \"C\" -->\n            <circle class=\"logo-ring\" cx=\"41\" cy=\"41\" r=\"32\" transform=\"rotate(58 41 41)\"/>\n            <!-- tiny skyline nested in the gap of the C -->\n            <rect class=\"logo-bar\" x=\"54\" y=\"46\" width=\"7\" height=\"16\" rx=\"1.5\"/>\n            <rect class=\"logo-bar\" x=\"63\" y=\"36\" width=\"7\" height=\"26\" rx=\"1.5\"/>\n            <rect class=\"logo-bar hero\" x=\"72\" y=\"24\" width=\"7.5\" height=\"38\" rx=\"1.5\"/>\n            <!-- beacon on the hero tower -->\n            <circle class=\"logo-beacon-pulse\" cx=\"75.7\" cy=\"22\" r=\"3\"/>\n            <circle class=\"logo-beacon\" cx=\"75.7\" cy=\"22\" r=\"2.6\"/>\n          </svg>\n        </div>\n        <div class=\"wordmark-big\">CityOS</div>\n        <div class=\"tagline-splash\">Весь город в твоём телефоне</div>\n      </div>\n\n      <div class=\"loading-dots\"><span></span><span></span><span></span></div>\n    </div>\n\n    <!-- HOME -->\n    <div class=\"home\" id=\"home\">\n      <div class=\"statusbar\"><span>9:41</span><span>◆ ▮▮▮▮</span></div>\n      <div class=\"topbar\">\n        <div class=\"wordmark\">\n          <span class=\"name\">CityOS</span>\n          <span class=\"status\"><span class=\"dot-live\"></span>СИСТЕМА АКТИВНА</span>\n        </div>\n        <div class=\"profile-tab\"><div class=\"avatar\"></div></div>\n      </div>\n\n      <div class=\"content\">\n        <div class=\"goal-box\">\n          <span class=\"goal-eyebrow\">Сформулируйте задачу</span>\n          <p class=\"goal-text\">Например: «Нужен электрик завтра после шести, район Мурино, до 8 000 ₽»</p>\n          <div class=\"goal-actions\">\n            <div class=\"goal-mic\">\n              <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n                <path d=\"M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z\"></path>\n                <path d=\"M19 10v2a7 7 0 0 1-14 0v-2\"></path>\n              </svg>\n            </div>\n            <div class=\"goal-send\">\n              Начать кейс\n              <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"></line><polyline points=\"12 5 19 12 12 19\"></polyline></svg>\n            </div>\n          </div>\n        </div>\n\n        <div>\n          <div class=\"section-head\"><span class=\"section-title\">Недавние кейсы</span><span class=\"section-link\">ВСЕ →</span></div>\n          <div class=\"cases-row\">\n            <div class=\"case-card\"><span class=\"case-tag progress\">В процессе</span><span class=\"case-title\">Ремонт розетки, район Мурино</span><span class=\"case-sub\">Мастер выбран · заказ #A214</span></div>\n            <div class=\"case-card\"><span class=\"case-tag wait\">Ждёт вас</span><span class=\"case-title\">Документы для поступления</span><span class=\"case-sub\">Подтвердите 2 поля OCR</span></div>\n            <div class=\"case-card\"><span class=\"case-tag done\">Завершён</span><span class=\"case-title\">Курс по вождению</span><span class=\"case-sub\">Оплачено · чек получен</span></div>\n          </div>\n        </div>\n\n        <div>\n          <div class=\"section-head\"><span class=\"section-title\">Каталог</span><span class=\"section-link\">ОТКРЫТЬ →</span></div>\n          <div class=\"grid\">\n            <div class=\"tile services\"><div class=\"tile-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\"></path></svg></div><span class=\"tile-name\">Бытовые услуги</span></div>\n            <div class=\"tile edu\"><div class=\"tile-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 10L12 5 2 10l10 5 10-5z\"></path><path d=\"M6 12v5c3 2 9 2 12 0v-5\"></path></svg></div><span class=\"tile-name\">Курсы и запись</span></div>\n            <div class=\"tile docs\"><div class=\"tile-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"></path><polyline points=\"14 2 14 8 20 8\"></polyline></svg></div><span class=\"tile-name\">Документы</span></div>\n            <div class=\"tile orders\"><div class=\"tile-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"9\" cy=\"21\" r=\"1\"></circle><circle cx=\"20\" cy=\"21\" r=\"1\"></circle><path d=\"M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6\"></path></svg></div><span class=\"tile-name\">Мои заказы</span></div>\n          </div>\n        </div>\n\n        <div class=\"inbox-strip\">\n          <div class=\"inbox-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg></div>\n          <div class=\"inbox-text\"><b>Электрик</b> подтвердил заказ на завтра, 18:30</div>\n          <div class=\"inbox-dot\"></div>\n        </div>\n      </div>\n\n      <div class=\"controls\">\n        <div class=\"side-btn\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polygon points=\"1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6\"></polygon><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"18\"></line><line x1=\"16\" y1=\"6\" x2=\"16\" y2=\"22\"></line></svg></div>\n        <div class=\"ai-btn\"><div class=\"ring r1\"></div><div class=\"ring r2\"></div><div class=\"ring r3\"></div>\n          <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z\"></path><path d=\"M19 10v2a7 7 0 0 1-14 0v-2\"></path><line x1=\"12\" y1=\"19\" x2=\"12\" y2=\"23\"></line></svg>\n        </div>\n        <div class=\"side-btn\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"4\" y1=\"7\" x2=\"20\" y2=\"7\"></line><line x1=\"4\" y1=\"12\" x2=\"20\" y2=\"12\"></line><line x1=\"4\" y1=\"17\" x2=\"20\" y2=\"17\"></line></svg></div>\n      </div>\n    </div>\n\n    <div class=\"home-indicator\"></div>\n  </div>";
+</script>
+<script>
+  const DEMO2_CSS = ":host{\n  display:block; position:relative;\n  font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;\n  color:#10131A; line-height:normal; text-align:left;\n}\n*{box-sizing:border-box; margin:0; padding:0;}\n.vphone{\n  width:375px; height:812px; background:#fff; border-radius:52px;\n  border:10px solid #14161C; position:absolute; top:0; left:0; overflow:hidden;\n}\n.vnotch{ position:absolute; top:10px; left:50%; transform:translateX(-50%); width:120px; height:26px; background:#14161C; border-radius:16px; z-index:30; }\n.vtopbar{\n  position:absolute; top:0; left:0; right:0; padding:44px 22px 14px; z-index:5;\n  background:#fff; border-bottom:1px solid #EEF0F3;\n}\n.vagent{ display:flex; align-items:center; gap:8px; font-weight:700; font-size:15px; color:#10131A; }\n.vdot{ width:6px; height:6px; border-radius:50%; background:#22C55E; box-shadow:0 0 0 3px rgba(34,197,94,0.15); }\n.vsub{ font-family:'SF Mono','Menlo','Consolas',monospace; font-size:10px; letter-spacing:0.06em; color:#8891B8; margin-top:3px; text-transform:uppercase; }\n\n.vchat{\n  position:absolute; top:96px; bottom:132px; left:0; right:0; overflow-y:auto;\n  padding:18px 18px 8px; display:flex; flex-direction:column; gap:12px;\n}\n.vchat::-webkit-scrollbar{ display:none; }\n\n.vbubble{ max-width:80%; padding:11px 14px; border-radius:16px; font-size:13.5px; line-height:1.45;\n  opacity:0; transform:translateY(6px); animation:vbubbleIn .35s ease forwards; }\n@keyframes vbubbleIn{ to{ opacity:1; transform:translateY(0); } }\n.vbubble.ai{ align-self:flex-start; background:#F7F8FA; color:#10131A; border-bottom-left-radius:4px; }\n.vbubble.user{ align-self:flex-end; background:#2F4BFF; color:#fff; border-bottom-right-radius:4px; }\n\n.vtyping{ align-self:flex-start; background:#F7F8FA; border-radius:16px; border-bottom-left-radius:4px; padding:12px 16px; display:flex; gap:4px; }\n.vtyping span{ width:6px; height:6px; border-radius:50%; background:#C7CDDA; animation:vdotpulse 1.1s ease-in-out infinite; }\n.vtyping span:nth-child(2){ animation-delay:.15s; }\n.vtyping span:nth-child(3){ animation-delay:.3s; }\n@keyframes vdotpulse{ 0%,100%{ transform:scale(1); opacity:.5; } 50%{ transform:scale(1.3); opacity:1; } }\n\n.vwaiting{\n  align-self:flex-start; background:#F7F8FA; border-radius:16px; border-bottom-left-radius:4px;\n  padding:11px 15px; display:flex; align-items:center; gap:9px; font-size:12.5px; color:#5B6270;\n  opacity:0; transform:translateY(6px); animation:vbubbleIn .35s ease forwards;\n}\n.vwaitspin{\n  width:13px; height:13px; border-radius:50%; border:2px solid #DCE1EE; border-top-color:#2F4BFF;\n  animation:vspin .7s linear infinite; flex-shrink:0;\n}\n@keyframes vspin{ to{ transform:rotate(360deg); } }\n\n.vpartners{ align-self:stretch; display:flex; flex-direction:column; gap:8px;\n  opacity:0; transform:translateY(6px); animation:vbubbleIn .35s ease forwards; }\n.vpartner{\n  border:1px solid #EEF0F3; border-radius:14px; padding:11px 14px; display:flex;\n  justify-content:space-between; align-items:center; cursor:pointer; background:#fff;\n  transition:background .15s ease, border-color .15s ease;\n}\n.vpartner:active{ background:#EAEEFF; border-color:#2F4BFF; }\n.vpartner .pname{ font-weight:600; font-size:13px; color:#10131A; }\n.vpartner .pmeta{ font-size:11px; color:#5B6270; margin-top:2px; }\n.vpartner.disabled{ pointer-events:none; opacity:.45; }\n\n.vreminder{\n  align-self:stretch; border:1px solid #EEF0F3; border-radius:14px; padding:12px 14px;\n  background:#F7F8FA; display:flex; gap:10px; align-items:center;\n  opacity:0; transform:translateY(6px); animation:vbubbleIn .35s ease forwards;\n}\n.vreminder .vricon{ width:32px; height:32px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; }\n.vreminder .vricon svg{ width:16px; height:16px; stroke:#2F4BFF; }\n.vreminder .vrtext{ font-size:12.5px; color:#10131A; line-height:1.4; }\n.vreminder .vrtext b{ font-weight:700; }\n\n.vmicwrap{\n  position:absolute; bottom:0; left:0; right:0; padding:16px 0 32px; z-index:5;\n  display:flex; flex-direction:column; align-items:center; gap:10px;\n  background:linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 40%);\n}\n.vmic{\n  width:64px; height:64px; border-radius:50%; position:relative; cursor:pointer;\n  background:radial-gradient(circle at 32% 28%, #5470FF, #2F4BFF 65%);\n  display:flex; align-items:center; justify-content:center;\n  box-shadow:0 12px 26px -8px rgba(47,75,255,0.5);\n  transition:background .25s ease;\n}\n.vmic.listening{ background:radial-gradient(circle at 32% 28%, #FF7A7A, #E5484D 65%); box-shadow:0 12px 26px -8px rgba(229,72,77,0.5); }\n.vmic.disabled{ opacity:.4; pointer-events:none; }\n.vmic svg{ width:24px; height:24px; stroke:#fff; position:relative; z-index:2; }\n.vring{ position:absolute; inset:-8px; border-radius:50%; border:1.5px solid rgba(47,75,255,.35); opacity:0; }\n.vmic.listening .vring{ opacity:1; border-color:rgba(229,72,77,.4); animation:vpulse 1.6s cubic-bezier(.4,0,.2,1) infinite; }\n.vring.r2{ animation-delay:.5s; } .vring.r3{ animation-delay:1s; }\n@keyframes vpulse{ 0%{ transform:scale(1); opacity:.55; } 100%{ transform:scale(1.7); opacity:0; } }\n.vmicstate{ font-family:'SF Mono','Menlo','Consolas',monospace; font-size:10.5px; letter-spacing:0.04em; color:#5B6270; min-height:14px; }\n.vreplay{\n  font-family:'SF Mono','Menlo','Consolas',monospace; font-size:10.5px; letter-spacing:0.04em;\n  color:#2F4BFF; border:1px solid #EAEEFF; padding:7px 16px; border-radius:999px; cursor:pointer;\n  background:#fff; display:none;\n}\n";
+  const DEMO2_HTML = "<div class=\"vphone\">\n  <div class=\"vnotch\"></div>\n  <div class=\"vtopbar\">\n    <div class=\"vagent\"><span class=\"vdot\"></span>AI-агент CityOS</div>\n    <div class=\"vsub\">Голосовой режим</div>\n  </div>\n  <div class=\"vchat\" id=\"vdChat\"></div>\n  <div class=\"vmicwrap\">\n    <div class=\"vmic\" id=\"vdMic\">\n      <div class=\"vring r1\"></div><div class=\"vring r2\"></div><div class=\"vring r3\"></div>\n      <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n        <path d=\"M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z\"></path>\n        <path d=\"M19 10v2a7 7 0 0 1-14 0v-2\"></path>\n      </svg>\n    </div>\n    <div class=\"vmicstate\" id=\"vdState\">Нажмите и скажите</div>\n    <div class=\"vreplay\" id=\"vdReplay\">↻ Показать ещё раз</div>\n  </div>\n</div>\n";
+</script>
+</head>
+<body data-phase="night">
+
+<div class="sky">
+  <div class="moonlight"></div>
+  <div class="celestial">
+    <div class="moon"></div>
+    <div class="sun"></div>
+  </div>
+  <div id="starsHost"></div>
+  <div class="skyline">
+    <svg viewBox="0 0 1200 220" preserveAspectRatio="none">
+      <g id="buildingsRoot"></g>
+    </svg>
+  </div>
+</div>
+
+<main>
+
+  <section id="hero">
+    <svg class="logo-mark reveal in" viewBox="0 0 82 82">
+      <defs>
+        <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#5470FF"/><stop offset="1" stop-color="#2338C7"/>
+        </linearGradient>
+      </defs>
+      <circle cx="41" cy="41" r="32" transform="rotate(58 41 41)" fill="none" stroke="url(#ringGrad)" stroke-width="7.5" stroke-linecap="round" stroke-dasharray="150 200" stroke-dashoffset="-8"/>
+      <rect x="54" y="46" width="7" height="16" rx="1.5" fill="#2338C7"/>
+      <rect x="63" y="36" width="7" height="26" rx="1.5" fill="#2338C7"/>
+      <rect x="72" y="24" width="7.5" height="38" rx="1.5" fill="#5470FF"/>
+      <circle cx="75.7" cy="22" r="2.6" fill="#2F4BFF"/>
+    </svg>
+    <div class="eyebrow mono reveal in">Цифровой город</div>
+    <h1 class="hero-title reveal in d1">CityOS</h1>
+    <p class="lede reveal in d2">Весь город в твоём телефоне.</p>
+    <div class="scroll-cue reveal in d3">
+      <span class="mono">Листайте</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </section>
+
+  <section id="problem" data-phase-target="night">
+    <div class="eyebrow mono reveal">Сегодня</div>
+    <h2 class="section-title reveal d1">Жизнь человека организована вокруг ведомств, а не вокруг него</h2>
+    <p class="lede reveal d2">Банк знает платежи. Клиника — расписание. Университет — приёмную кампанию. Человек сам вынужден быть посредником между ними: искать, повторять одни и те же данные, следить за сроками и нести риск ошибки.</p>
+    <div class="chip-field reveal d3" id="chipField"></div>
+  </section>
+
+  <section id="idea" data-phase-target="dawn">
+    <div class="eyebrow mono reveal">Идея</div>
+    <h2 class="section-title reveal d1">Одна формула вместо десятков приложений</h2>
+    <div class="formula reveal d2">
+      <div class="formula-word"><span class="word display">Скажи</span><span class="cap">Человек формулирует цель обычными словами</span></div>
+      <span class="formula-arrow">→</span>
+      <div class="formula-word"><span class="word display">Покажи</span><span class="cap">Система показывает понятный план, варианты и цену — до всякого действия</span></div>
+      <span class="formula-arrow">→</span>
+      <div class="formula-word"><span class="word display">Сделай</span><span class="cap">Разрешённые шаги выполняются только после согласия</span></div>
+    </div>
+  </section>
+
+  <section id="audience" data-phase-target="dawn">
+    <div class="eyebrow mono reveal">Кому это нужно</div>
+    <h2 class="section-title reveal d1">Не абстрактный рынок — конкретные роли</h2>
+    <div class="card-grid reveal d2">
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg></div>
+        <div class="name">Городской навигатор</div>
+        <div class="desc">Решает бытовые задачи в своём городе и не хочет разбираться в устройстве каждой отрасли</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
+        <div class="name">Новый житель или турист</div>
+        <div class="desc">Не знает локальных правил и каналов — нужен понятный путь и защита от ошибок</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+        <div class="name">Семья и доверенное лицо</div>
+        <div class="desc">Помогает детям или родителям без передачи паролей и личных данных</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></div>
+        <div class="name">Малый бизнес</div>
+        <div class="desc">Получает структурированный спрос вместо хаоса заявок в директ</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo" data-phase-target="dawn">
+    <div class="demo-wrap">
+      <div>
+        <div class="eyebrow mono reveal">Это уже работает</div>
+        <h2 class="section-title reveal d1">Не макет. Настоящий экран</h2>
+        <p class="lede reveal d2">Главная страница CityOS — такой, какой её увидит первый пользователь.</p>
+      </div>
+      <div class="phone-frame reveal d3" id="phoneFrame">
+        <div class="phone-screen">
+          <div id="demoHost"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="scenario">
+    <div class="eyebrow mono reveal">Продукт в деле</div>
+    <h2 class="section-title reveal d1">Один сценарий показывает всю систему</h2>
+    <p class="lede reveal d2">Переезд семьи — от цели до контроля результата</p>
+    <div class="timeline reveal d3">
+      <div class="timeline-step">
+        <div class="timeline-dot">1</div>
+        <div class="timeline-content">
+        <div class="timeline-title">Цель</div>
+        <div class="timeline-desc">Бюджет, район, состав семьи, ограничения</div>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">2</div>
+        <div class="timeline-content">
+        <div class="timeline-title">План</div>
+        <div class="timeline-desc">Чек-лист, документы и зависимости</div>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">3</div>
+        <div class="timeline-content">
+        <div class="timeline-title">Выбор</div>
+        <div class="timeline-desc">Жильё, транспорт и услуги</div>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">4</div>
+        <div class="timeline-content">
+        <div class="timeline-title">Подготовка</div>
+        <div class="timeline-desc">Черновики документов и записи</div>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">5</div>
+        <div class="timeline-content">
+        <div class="timeline-title">Контроль</div>
+        <div class="timeline-desc">Статусы и следующие шаги</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="voicedemo">
+    <div class="eyebrow mono reveal">Попробуйте сами</div>
+    <h2 class="section-title reveal d1">Так это работает — от голоса до результата</h2>
+    <div class="demo-wrap">
+      <div class="phone-frame reveal d2" id="voicePhoneFrame">
+        <div class="phone-screen">
+          <div id="vdHost"></div>
+        </div>
+      </div>
+      <p class="voice-hint reveal d3">Нажмите на микрофон и скажите, что вам нужно — например, «Хочу перевезти вещи в новую квартиру». Если микрофон недоступен, сценарий продолжится сам.</p>
+    </div>
+  </section>
+
+  <section id="trust">
+    <div class="eyebrow mono reveal">Доверие — это продукт</div>
+    <h2 class="section-title reveal d1">Мы не прячем автономность за красивым интерфейсом</h2>
+    <div class="card-grid reveal d2">
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></div>
+        <div class="name">Прозрачность прежде впечатления</div>
+        <div class="desc">Честное «подготовлено, отправьте сами» лучше иллюзии выполненного действия</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></div>
+        <div class="name">Человек решает</div>
+        <div class="desc">AI предлагает и готовит; финальное подтверждение — всегда за пользователем</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+        <div class="name">Минимум данных</div>
+        <div class="desc">Система запрашивает только то, что нужно для конкретной задачи</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L11 3.83V3H4v7h.83l9.58 9.59a2 2 0 0 0 2.83 0l3.35-3.35a2 2 0 0 0 0-2.83z"></path><circle cx="7.5" cy="7.5" r="1.5"></circle></svg></div>
+        <div class="name">Реклама не маскируется под совет</div>
+        <div class="desc">Платное продвижение всегда помечено отдельно</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="business">
+    <div class="eyebrow mono reveal">На чём зарабатываем</div>
+    <h2 class="section-title reveal d1">Модель растёт вместе с доказанной ценностью</h2>
+    <div class="card-grid reveal d2">
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg></div>
+        <div class="name">Комиссия за транзакцию</div>
+        <div class="desc">Процент с подтверждённого заказа через партнёра</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg></div>
+        <div class="name">Подписка пользователя</div>
+        <div class="desc">Расширенное хранение, приоритетная поддержка, автоматизация</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></div>
+        <div class="name">Инструменты для партнёров</div>
+        <div class="desc">SaaS-плата за обработку заявок и аналитику</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1"></rect><line x1="8" y1="6" x2="8" y2="6"></line><line x1="12" y1="6" x2="12" y2="6"></line><line x1="16" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="8" y2="10"></line><line x1="12" y1="10" x2="12" y2="10"></line><line x1="16" y1="10" x2="16" y2="10"></line></svg></div>
+        <div class="name">B2B2C-контракты</div>
+        <div class="desc">Доступ для сотрудников, клиентов или жителей от компаний и городских программ</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="roadmap">
+    <div class="eyebrow mono reveal">Дальше скелета</div>
+    <h2 class="section-title reveal d1">Скелет — это первый шаг, не вся дорога</h2>
+    <div class="timeline reveal d2">
+      <div class="timeline-step now">
+        <div class="timeline-dot">0</div>
+        <div class="timeline-content">
+          <div class="timeline-label">0–2 мес</div>
+        <div class="timeline-title">Discovery</div>
+        <div class="timeline-desc">Выбор сценария, архитектура, кликабельный прототип</div>
+        <span class="now-tag">Мы здесь</span>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">1</div>
+        <div class="timeline-content">
+          <div class="timeline-label">2–5 мес</div>
+        <div class="timeline-title">Concierge-alpha</div>
+        <div class="timeline-desc">Первые живые пользователи с ручной поддержкой</div>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">2</div>
+        <div class="timeline-content">
+          <div class="timeline-label">5–9 мес</div>
+        <div class="timeline-title">MVP и пилот</div>
+        <div class="timeline-desc">Полный сценарий с реальным партнёром</div>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">3</div>
+        <div class="timeline-content">
+          <div class="timeline-label">9–15 мес</div>
+        <div class="timeline-title">Масштаб в городе</div>
+        <div class="timeline-desc">Второй партнёр, второй сценарий на общем ядре</div>
+        </div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot">4</div>
+        <div class="timeline-content">
+          <div class="timeline-label">15–24 мес</div>
+        <div class="timeline-title">Второй город</div>
+        <div class="timeline-desc">Платформа, а не разовый проект</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="scope">
+    <div class="eyebrow mono reveal">Phase 0 — что входит</div>
+    <h2 class="section-title reveal d1">Прочный скелет, а не обещания</h2>
+    <p class="lede reveal d2">Начинаем не с ИИ-магии, а с фундамента, который можно потрогать и проверить.</p>
+    <div class="card-grid reveal d3">
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+        <div class="name">Frontend</div>
+        <div class="desc">Мобильные приложения и веб — то, что видит пользователь</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg></div>
+        <div class="name">Хранилище данных</div>
+        <div class="desc">Модель базы данных, метрики, тесты</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path><polyline points="7 9 12 4 17 9"></polyline><line x1="12" y1="4" x2="12" y2="16"></line></svg></div>
+        <div class="name">Прикладной слой</div>
+        <div class="desc">API, профиль, кейсы — рабочая логика сервиса</div>
+      </div>
+      <div class="scope-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+        <div class="name">Безопасность</div>
+        <div class="desc">Webhook, защита данных, базовые проверки</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="team" data-phase-target="day">
+    <div class="eyebrow mono reveal">Команда</div>
+    <h2 class="section-title reveal d1">Компактная команда, которая уже работает</h2>
+    <div class="team-grid reveal d2">
+      <div class="team-card">
+        <div class="avatar"></div>
+        <div class="role mono">Product &amp; Tech Lead</div>
+        <div class="name">Данил Махнутин</div>
+        <div class="focus">Продукт, архитектура решения, координация команды и партнёров</div>
+      </div>
+      <div class="team-card">
+        <div class="avatar"></div>
+        <div class="role mono">Backend &amp; Security Engineer</div>
+        <div class="name">— имя —</div>
+        <div class="focus">Серверная логика, хранилище данных, безопасность</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="closing" data-phase-target="day">
+    <div class="eyebrow mono reveal">Итог</div>
+    <h2 class="section-title reveal d1">Команда готова начать</h2>
+    <p class="lede reveal d2">Скелет — за 3–4 месяца. Дальше — вместе с вами.</p>
+    <svg class="closing-mark reveal d3" viewBox="0 0 82 82">
+      <circle cx="41" cy="41" r="32" transform="rotate(58 41 41)" fill="none" stroke="url(#ringGradClose)" stroke-width="7.5" stroke-linecap="round" stroke-dasharray="150 200" stroke-dashoffset="-8"/>
+      <defs>
+        <linearGradient id="ringGradClose" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#5470FF"/><stop offset="1" stop-color="#2338C7"/>
+        </linearGradient>
+      </defs>
+      <rect x="54" y="46" width="7" height="16" rx="1.5" fill="#2338C7"/>
+      <rect x="63" y="36" width="7" height="26" rx="1.5" fill="#2338C7"/>
+      <rect x="72" y="24" width="7.5" height="38" rx="1.5" fill="#5470FF"/>
+      <circle cx="75.7" cy="22" r="2.6" fill="#2F4BFF"/>
+    </svg>
+  </section>
+
+</main>
+
+<script>
+  // ---- Embedded product demo, isolated in a Shadow DOM so its styles/ids never collide
+  // with this page's own, and so nothing depends on loading a second file or an iframe. ----
+  (function(){
+    const host = document.getElementById('demoHost');
+    const shadow = host.attachShadow({mode:'open'});
+    const style = document.createElement('style');
+    style.textContent = DEMO_CSS;
+    shadow.appendChild(style);
+    const wrap = document.createElement('div');
+    wrap.innerHTML = DEMO_HTML;
+    shadow.appendChild(wrap.firstElementChild);
+
+    const DSVGNS = "http://www.w3.org/2000/svg";
+    const dBuildings = [
+      {x:0,   y:92,  w:36, h:80,  cols:3, rows:5},
+      {x:34,  y:52,  w:48, h:120, cols:4, rows:8},
+      {x:80,  y:108, w:30, h:64,  cols:2, rows:4},
+      {x:108, y:30,  w:54, h:142, cols:4, rows:9},
+      {x:160, y:78,  w:38, h:94,  cols:3, rows:6},
+      {x:196, y:46,  w:62, h:126, cols:5, rows:8},
+      {x:256, y:100, w:34, h:72,  cols:3, rows:5},
+      {x:288, y:58,  w:52, h:114, cols:4, rows:7},
+      {x:342, y:96,  w:33, h:76,  cols:3, rows:5}
+    ];
+
+    function buildDemoSkyline(){
+      const root = shadow.getElementById('buildingsRoot');
+      root.innerHTML = "";
+      dBuildings.forEach((b, bi) => {
+        const g = document.createElementNS(DSVGNS, "g");
+        g.setAttribute("class", "bldg-group");
+        g.style.animationDelay = (0.05 * bi) + "s";
+        const rect = document.createElementNS(DSVGNS, "rect");
+        rect.setAttribute("class", "bldg");
+        rect.setAttribute("x", b.x); rect.setAttribute("y", b.y);
+        rect.setAttribute("width", b.w); rect.setAttribute("height", b.h);
+        rect.setAttribute("rx", 2);
+        g.appendChild(rect);
+        const padX=5, padTop=10, padBottom=6, gap=4;
+        const winW = (b.w - padX*2 - gap*(b.cols-1)) / b.cols;
+        const winH = 6;
+        const availH = b.h - padTop - padBottom;
+        const rowGap = (availH - winH*b.rows) / (b.rows-1 || 1);
+        for(let r=0;r<b.rows;r++){
+          for(let c=0;c<b.cols;c++){
+            const win = document.createElementNS(DSVGNS, "rect");
+            const lit = Math.random() < 0.42;
+            win.setAttribute("class", "window" + (lit ? " lit" : ""));
+            win.setAttribute("x", b.x+padX+c*(winW+gap));
+            win.setAttribute("y", b.y+padTop+r*(winH+rowGap));
+            win.setAttribute("width", winW); win.setAttribute("height", winH);
+            win.setAttribute("rx", 1);
+            g.appendChild(win);
+          }
+        }
+        root.appendChild(g);
+      });
+    }
+
+    function setDemoCelestial(forceMode){
+      const hour = new Date().getHours();
+      const isDay = forceMode ? forceMode === 'day' : (hour >= 6 && hour < 19);
+      const splash = shadow.getElementById('splash');
+      splash.classList.remove('day','night');
+      splash.classList.add(isDay ? 'day' : 'night');
+      const layer = shadow.getElementById('celestialLayer');
+      layer.innerHTML = "";
+      const oldGlow = splash.querySelector('.moonlight');
+      if(oldGlow) oldGlow.remove();
+      splash.querySelectorAll('.cloud, .bird-fly').forEach(el => el.remove());
+
+      if(isDay){
+        const sunHalo = document.createElement('div'); sunHalo.className = 'sun-halo'; layer.appendChild(sunHalo);
+        const sun = document.createElement('div'); sun.className = 'sun'; layer.appendChild(sun);
+        const cloudSpecs = [
+          {top:'11%', w:96, h:56, dur:'16s', delay:'-3s'},
+          {top:'27%', w:64, h:38, dur:'13s', delay:'-8s'},
+          {top:'34%', w:80, h:46, dur:'19s', delay:'-1s'}
+        ];
+        const cloudSVG = '<svg viewBox="0 0 24 24"><path d="M19.35,10.04C18.67,6.59,15.64,4,12,4C9.11,4,6.6,5.64,5.35,8.04C2.34,8.36,0,10.91,0,14c0,3.31,2.69,6,6,6h13c2.76,0,5,-2.24,5,-5C24,12.36,21.95,10.22,19.35,10.04z" fill="#E7EEFC" stroke="#A9BEE8" stroke-width="1.1" stroke-linejoin="round"/></svg>';
+        cloudSpecs.forEach(c => {
+          const cloud = document.createElement('div');
+          cloud.className = 'cloud';
+          cloud.style.top = c.top;
+          cloud.style.width = c.w+'px'; cloud.style.height = c.h+'px';
+          cloud.style.animationDuration = '1s, ' + c.dur;
+          cloud.style.animationDelay = '0s, ' + c.delay;
+          cloud.innerHTML = cloudSVG;
+          splash.appendChild(cloud);
+        });
+        const birdSpecs = [
+          {top:'18%', dur:'8s', delay:'-2s', scale:1},
+          {top:'23%', dur:'8s', delay:'-3.4s', scale:0.8},
+          {top:'15%', dur:'9.5s', delay:'-1s', scale:0.65}
+        ];
+        birdSpecs.forEach(b => {
+          const fly = document.createElement('div');
+          fly.className = 'bird-fly show';
+          fly.style.top = b.top;
+          fly.style.animationDuration = b.dur;
+          fly.style.animationDelay = b.delay;
+          fly.style.transform = `scale(${b.scale})`;
+          const bird = document.createElement('div'); bird.className = 'bird';
+          const wl = document.createElement('span'); wl.className = 'wing l';
+          const wr = document.createElement('span'); wr.className = 'wing r';
+          bird.appendChild(wl); bird.appendChild(wr);
+          fly.appendChild(bird);
+          splash.appendChild(fly);
+        });
+      } else {
+        const moonlight = document.createElement('div'); moonlight.className = 'moonlight';
+        splash.insertBefore(moonlight, splash.firstChild);
+        const moon = document.createElement('div'); moon.className = 'moon'; layer.appendChild(moon);
+        for(let i=0;i<26;i++){
+          const star = document.createElement('div');
+          star.className = 'star';
+          const size = 1 + Math.random()*1.6;
+          star.style.width = size+"px"; star.style.height = size+"px";
+          star.style.left = (Math.random()*90+3)+"%";
+          star.style.top = (Math.random()*68+3)+"%";
+          star.style.animationDelay = (Math.random()*3)+"s";
+          layer.appendChild(star);
+        }
+      }
+      buildDemoSkyline();
+    }
+
+    function runDemoIntro(){
+      const splash = shadow.getElementById('splash');
+      const home = shadow.getElementById('home');
+      setDemoCelestial();
+      splash.classList.remove('hide');
+      home.classList.remove('show');
+      void splash.offsetWidth;
+      setTimeout(() => {
+        splash.classList.add('hide');
+        home.classList.add('show');
+      }, 2600);
+    }
+
+    let started = false;
+    const demoObserver = new IntersectionObserver((entries)=>{
+      entries.forEach(entry=>{
+        if(entry.isIntersecting && !started){ started = true; runDemoIntro(); }
+      });
+    }, { threshold: 0.3 });
+    demoObserver.observe(document.getElementById('phoneFrame'));
+  })();
+
+  // ---- Interactive voice demo (second, separate widget) ----
+  (function(){
+    const host2 = document.getElementById('vdHost');
+    if(!host2) return;
+    const shadow2 = host2.attachShadow({mode:'open'});
+    const style2 = document.createElement('style');
+    style2.textContent = DEMO2_CSS;
+    shadow2.appendChild(style2);
+    const wrap2 = document.createElement('div');
+    wrap2.innerHTML = DEMO2_HTML;
+    shadow2.appendChild(wrap2.firstElementChild);
+
+    const chatEl = shadow2.getElementById('vdChat');
+    const micEl = shadow2.getElementById('vdMic');
+    const stateEl = shadow2.getElementById('vdState');
+    const replayEl = shadow2.getElementById('vdReplay');
+
+    const PARTNERS = [
+      {name:'Партнёр А', meta:'★ 4.8 · выезд за 30 мин'},
+      {name:'Партнёр Б', meta:'★ 4.9 · выезд за 45 мин'},
+      {name:'Партнёр В', meta:'★ 4.7 · выезд за 25 мин'}
+    ];
+
+    const SCRIPT = [
+      {type:'user', canned:'Хочу перевезти вещи в новую квартиру'},
+      {type:'ai',   text:'Привет! С какого адреса переезжаем?'},
+      {type:'user', canned:'Улица Ленина, 15'},
+      {type:'ai',   text:'Куда переезжаем?'},
+      {type:'user', canned:'Проспект Мира, 40'},
+      {type:'ai',   text:'На какое время?'},
+      {type:'user', canned:'Завтра днём'},
+      {type:'ai',   text:'Какой у вас бюджет?'},
+      {type:'user', canned:'До 8 000 рублей'},
+      {type:'ai',   text:'Вот подходящие варианты — выберите исполнителя:'},
+      {type:'partners'},
+      {type:'ai',   textFn:(p)=>`Отправляю заявку партнёру «${p}»…`},
+      {type:'waiting', textFn:(p)=>`«${p}» обрабатывает заявку…`, ms:1800},
+      {type:'ai',   textFn:(p)=>`Партнёр «${p}» подтвердил и согласовал время.`},
+      {type:'reminder', textFn:(p)=>`Завтра, 15:00 — переезд подтверждён · «${p}»`}
+    ];
+
+    let idx = 0;
+    let selectedPartner = '';
+    let listening = false;
+    let recognition = null;
+    let listenTimeout = null;
+
+    function scrollChatDown(){
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function appendBubble(kind, text){
+      const b = document.createElement('div');
+      b.className = 'vbubble ' + kind;
+      b.textContent = text;
+      chatEl.appendChild(b);
+      scrollChatDown();
+    }
+
+    function appendTyping(){
+      const t = document.createElement('div');
+      t.className = 'vtyping';
+      t.id = 'vdTypingRow';
+      t.innerHTML = '<span></span><span></span><span></span>';
+      chatEl.appendChild(t);
+      scrollChatDown();
+    }
+    function removeTyping(){
+      const t = shadow2.getElementById('vdTypingRow');
+      if(t) t.remove();
+    }
+
+    function appendWaiting(text){
+      const w = document.createElement('div');
+      w.className = 'vwaiting';
+      w.id = 'vdWaitingRow';
+      w.innerHTML = `<span class="vwaitspin"></span><span>${text}</span>`;
+      chatEl.appendChild(w);
+      scrollChatDown();
+    }
+    function removeWaiting(){
+      const w = shadow2.getElementById('vdWaitingRow');
+      if(w) w.remove();
+    }
+
+    function renderPartners(){
+      const wrap = document.createElement('div');
+      wrap.className = 'vpartners';
+      PARTNERS.forEach(p=>{
+        const row = document.createElement('div');
+        row.className = 'vpartner';
+        row.innerHTML = `<div><div class="pname">${p.name}</div><div class="pmeta">${p.meta}</div></div>`;
+        row.addEventListener('click', ()=>{
+          if(row.classList.contains('disabled')) return;
+          wrap.querySelectorAll('.vpartner').forEach(el=>el.classList.add('disabled'));
+          selectedPartner = p.name;
+          appendBubble('user', p.name);
+          idx++;
+          setTimeout(advance, 500);
+        });
+        wrap.appendChild(row);
+      });
+      chatEl.appendChild(wrap);
+      scrollChatDown();
+    }
+
+    function appendReminder(text){
+      const r = document.createElement('div');
+      r.className = 'vreminder';
+      r.innerHTML = `<div class="vricon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></div><div class="vrtext"><b>Добавлено на главный экран:</b><br>${text}</div>`;
+      chatEl.appendChild(r);
+      scrollChatDown();
+    }
+
+    function advance(){
+      if(idx >= SCRIPT.length){ return; }
+      const step = SCRIPT[idx];
+
+      if(step.type === 'ai'){
+        micEl.classList.add('disabled');
+        stateEl.textContent = '';
+        appendTyping();
+        setTimeout(()=>{
+          removeTyping();
+          const text = step.textFn ? step.textFn(selectedPartner) : step.text;
+          appendBubble('ai', text);
+          idx++;
+          setTimeout(advance, 650);
+        }, 700);
+      } else if(step.type === 'user'){
+        micEl.classList.remove('disabled');
+        stateEl.textContent = 'Нажмите и скажите';
+      } else if(step.type === 'partners'){
+        micEl.classList.add('disabled');
+        stateEl.textContent = 'Выберите вариант';
+        renderPartners();
+      } else if(step.type === 'waiting'){
+        micEl.classList.add('disabled');
+        stateEl.textContent = '';
+        const text = step.textFn ? step.textFn(selectedPartner) : step.text;
+        appendWaiting(text);
+        setTimeout(()=>{
+          removeWaiting();
+          idx++;
+          advance();
+        }, step.ms || 1600);
+      } else if(step.type === 'reminder'){
+        const text = step.textFn(selectedPartner);
+        appendReminder(text);
+        idx++;
+        setTimeout(()=>{
+          micEl.classList.add('disabled');
+          stateEl.textContent = 'Сценарий завершён';
+          replayEl.style.display = 'inline-block';
+        }, 500);
+      }
+    }
+
+    function finishListening(recognizedText){
+      listening = false;
+      micEl.classList.remove('listening');
+      clearTimeout(listenTimeout);
+      const step = SCRIPT[idx];
+      if(!step || step.type !== 'user') return;
+      const text = (recognizedText && recognizedText.trim()) ? recognizedText.trim() : step.canned;
+      appendBubble('user', text);
+      idx++;
+      stateEl.textContent = '';
+      setTimeout(advance, 500);
+    }
+
+    function startListening(){
+      const step = SCRIPT[idx];
+      if(!step || step.type !== 'user' || listening) return;
+      listening = true;
+      micEl.classList.add('listening');
+      stateEl.textContent = 'Слушаю…';
+
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(SR){
+        try{
+          recognition = new SR();
+          recognition.lang = 'ru-RU';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+          let done = false;
+          recognition.onresult = (e)=>{
+            if(done) return;
+            done = true;
+            const transcript = e.results && e.results[0] && e.results[0][0] ? e.results[0][0].transcript : '';
+            finishListening(transcript);
+          };
+          recognition.onerror = ()=>{
+            if(done) return;
+            done = true;
+            finishListening(null);
+          };
+          recognition.onend = ()=>{
+            if(done) return;
+            done = true;
+            finishListening(null);
+          };
+          listenTimeout = setTimeout(()=>{
+            if(done) return;
+            done = true;
+            try{ recognition.stop(); }catch(e){}
+            finishListening(null);
+          }, 6000);
+          recognition.start();
+        }catch(e){
+          listenTimeout = setTimeout(()=> finishListening(null), 900);
+        }
+      } else {
+        listenTimeout = setTimeout(()=> finishListening(null), 900);
+      }
+    }
+
+    micEl.addEventListener('click', startListening);
+    replayEl.addEventListener('click', ()=>{
+      idx = 0;
+      selectedPartner = '';
+      chatEl.innerHTML = '';
+      replayEl.style.display = 'none';
+      advance();
+    });
+
+    advance();
+  })();
+
+  // ---- Skyline (outer page background) ----
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const buildings = [
+    {x:0,   y:100, w:70, h:120, cols:5, rows:8},
+    {x:74,  y:60,  w:96, h:160, cols:6, rows:10},
+    {x:174, y:130, w:60, h:90,  cols:4, rows:6},
+    {x:238, y:40,  w:108,h:180, cols:7, rows:11},
+    {x:350, y:110, w:76, h:110, cols:5, rows:7},
+    {x:430, y:70,  w:120,h:150, cols:8, rows:9},
+    {x:554, y:120, w:66, h:100, cols:4, rows:6},
+    {x:624, y:50,  w:100,h:170, cols:6, rows:10},
+    {x:728, y:105, w:80, h:115, cols:5, rows:7},
+    {x:812, y:65,  w:110,h:155, cols:7, rows:9},
+    {x:926, y:115, w:70, h:105, cols:4, rows:6},
+    {x:1000,y:75,  w:96, h:145, cols:6, rows:9},
+    {x:1100,y:120, w:70, h:100, cols:4, rows:6}
+  ];
+  function buildSkyline(){
+    const root = document.getElementById('buildingsRoot');
+    buildings.forEach(b=>{
+      const g = document.createElementNS(SVGNS,'g');
+      const rect = document.createElementNS(SVGNS,'rect');
+      rect.setAttribute('class','bldg');
+      rect.setAttribute('x',b.x); rect.setAttribute('y',b.y);
+      rect.setAttribute('width',b.w); rect.setAttribute('height',b.h);
+      rect.setAttribute('rx',2);
+      g.appendChild(rect);
+      const padX=5, padTop=10, padBottom=6, gap=4;
+      const winW=(b.w-padX*2-gap*(b.cols-1))/b.cols;
+      const winH=6;
+      const availH=b.h-padTop-padBottom;
+      const rowGap=(availH-winH*b.rows)/(b.rows-1||1);
+      for(let r=0;r<b.rows;r++){
+        for(let c=0;c<b.cols;c++){
+          const win = document.createElementNS(SVGNS,'rect');
+          const lit = Math.random()<0.4;
+          win.setAttribute('class','window'+(lit?' lit':''));
+          win.setAttribute('x', b.x+padX+c*(winW+gap));
+          win.setAttribute('y', b.y+padTop+r*(winH+rowGap));
+          win.setAttribute('width', winW); win.setAttribute('height', winH);
+          win.setAttribute('rx',1);
+          g.appendChild(win);
+        }
+      }
+      root.appendChild(g);
+    });
+  }
+  buildSkyline();
+
+  // ---- Stars ----
+  const starsHost = document.getElementById('starsHost');
+  for(let i=0;i<40;i++){
+    const s = document.createElement('div');
+    s.className='star';
+    const size = 1+Math.random()*1.8;
+    s.style.width=size+'px'; s.style.height=size+'px';
+    s.style.left=(Math.random()*94+3)+'%';
+    s.style.top=(Math.random()*60+3)+'%';
+    const baseOpacity = (0.3+Math.random()*0.7);
+    s.dataset.base = baseOpacity.toFixed(2);
+    s.style.opacity = baseOpacity.toFixed(2);
+    starsHost.appendChild(s);
+  }
+
+  // ---- Fragmentation chips ----
+  const chipData = ['Банк','Клиника','Университет','Госуслуги','ЖКХ','Транспорт','Страховая','Нотариус'];
+  const chipField = document.getElementById('chipField');
+  chipData.forEach((t,i)=>{
+    const c = document.createElement('div');
+    c.className='chip mono';
+    c.textContent = t;
+    const angle = (i/chipData.length)*Math.PI*2;
+    const rx = 300, ry = 70;
+    const cx = 50 + (Math.cos(angle)*rx)/7.2;
+    const cy = 90 + Math.sin(angle)*ry;
+    c.style.left = cx+'%';
+    c.style.top = cy+'px';
+    chipField.appendChild(c);
+  });
+
+  // ---- Continuous night → dawn → day interpolation, driven purely by scroll % ----
+  function hexToRgb(hex){
+    const n = parseInt(hex.slice(1),16);
+    return [(n>>16)&255,(n>>8)&255,n&255];
+  }
+  function rgbToStr(rgb){ return `rgb(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0})`; }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function lerpColor(hexA,hexB,t){
+    const a=hexToRgb(hexA), b=hexToRgb(hexB);
+    return rgbToStr([lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)]);
+  }
+  function clamp01(v){ return Math.max(0,Math.min(1,v)); }
+
+  const skyEl = document.querySelector('.sky');
+  const moonEl = document.querySelector('.moon');
+  const sunEl = document.querySelector('.sun');
+  const moonlightEl = document.querySelector('.moonlight');
+  const starsEls = document.querySelectorAll('.star');
+  const bldgEls = document.querySelectorAll('.bldg');
+  const windowEls = document.querySelectorAll('.window:not(.lit)');
+  const litEls = document.querySelectorAll('.window.lit');
+  const root = document.documentElement;
+
+  // Sky keyframes: [progress, topColor, bottomColor]
+  const skyStops = [
+    {p:0.00, top:'#080B18', bottom:'#141A33'},
+    {p:0.38, top:'#1B2447', bottom:'#C98C6B'},
+    {p:0.62, top:'#EAF1FF', bottom:'#FFFFFF'},
+    {p:1.00, top:'#EAF1FF', bottom:'#FFFFFF'}
+  ];
+  function skyColorAt(progress){
+    let seg = skyStops[0];
+    for(let i=0;i<skyStops.length-1;i++){
+      if(progress >= skyStops[i].p && progress <= skyStops[i+1].p){
+        const a = skyStops[i], b = skyStops[i+1];
+        const t = (progress-a.p)/((b.p-a.p)||1);
+        return { top: lerpColor(a.top,b.top,t), bottom: lerpColor(a.bottom,b.bottom,t) };
+      }
+    }
+    const last = skyStops[skyStops.length-1];
+    return { top:last.top, bottom:last.bottom };
+  }
+
+  let ticking = false;
+  function updateSky(){
+    ticking = false;
+    const doc = document.documentElement;
+    const maxScroll = doc.scrollHeight - window.innerHeight;
+    const progress = clamp01(maxScroll > 0 ? window.scrollY / maxScroll : 0);
+
+    const c = skyColorAt(progress);
+    skyEl.style.background = `linear-gradient(180deg, ${c.top} 0%, ${c.bottom} 100%)`;
+
+    const moonT = clamp01((progress-0.03)/0.22);
+    moonEl.style.opacity = 1-moonT;
+    moonEl.style.transform = `translateY(${-moonT*24}px)`;
+
+    const sunT = clamp01((progress-0.22)/0.22);
+    sunEl.style.opacity = sunT;
+    sunEl.style.transform = `translateY(${(1-sunT)*30}px)`;
+
+    const starT = 1-clamp01((progress-0.02)/0.20);
+    starsEls.forEach(s=>{ s.style.opacity = (parseFloat(s.dataset.base)||0.7)*starT; });
+
+    moonlightEl.style.opacity = 1-clamp01(progress/0.28);
+
+    const dayT = clamp01(progress/0.55);
+    const bldgColor = lerpColor('#141A33','#D7DEEF', dayT);
+    const winColor = lerpColor('#232B52','#EDF1FA', dayT);
+    bldgEls.forEach(b=>{ b.style.fill = bldgColor; });
+    windowEls.forEach(w=>{ w.style.fill = winColor; });
+    const litT = 1-clamp01(progress/0.38);
+    litEls.forEach(w=>{ w.style.opacity = litT; });
+
+    root.style.setProperty('--fg', lerpColor('#F4F6FC','#10131A', dayT));
+    root.style.setProperty('--fg-soft', lerpColor('#8891B8','#5B6270', dayT));
+  }
+  function onScroll(){
+    if(!ticking){ requestAnimationFrame(updateSky); ticking = true; }
+  }
+  window.addEventListener('scroll', onScroll, { passive:true });
+  window.addEventListener('resize', onScroll);
+  updateSky();
+
+  // ---- Reveal on scroll ----
+  const revealEls = document.querySelectorAll('.reveal, .chip-field, .phone-frame');
+  const revealObserver = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){ entry.target.classList.add('in'); }
+    });
+  }, { threshold: 0.2 });
+  revealEls.forEach(el=>revealObserver.observe(el));
+</script>
+
+</body>
+</html>
