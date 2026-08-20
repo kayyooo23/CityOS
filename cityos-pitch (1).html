@@ -214,6 +214,65 @@
   p.lede{ color:var(--fg-soft); }
   .name{ color:var(--ink); }
 
+  /* ---- Market: TAM/SAM/SOM funnel + revenue growth chart ---- */
+  .funnel{ display:flex; flex-direction:column; align-items:center; gap:26px; width:100%; max-width:760px; margin-top:12px; }
+  .funnel-row{ width:100%; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .funnel-bar{
+    min-height:68px; border-radius:16px; padding:8px 14px; box-sizing:border-box; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:2px; transition:width .3s ease;
+  }
+  .funnel-bar .funnel-label{ font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; opacity:0.8; white-space:nowrap; }
+  .funnel-bar .funnel-value{ font-weight:800; font-size:clamp(15px,2.2vw,24px); white-space:nowrap; }
+  .funnel-desc{ font-size:12.5px; line-height:1.5; max-width:520px; text-align:center; color:var(--fg-soft); }
+  .funnel-bar.t-tam{ width:100%; background:#EAEEFF; color:#10131A; }
+  .funnel-bar.t-sam{ width:74%; background:#ACB8FF; color:#10131A; }
+  .funnel-bar.t-som{ width:48%; min-width:-webkit-max-content; min-width:max-content; background:#6D81FF; color:#fff; }
+  .funnel-bar.t-plan{ width:24%; min-width:-webkit-max-content; min-width:max-content; background:var(--accent); color:#fff; }
+  @media (max-width:640px){
+    .funnel-bar.t-som{ width:66%; }
+    .funnel-bar.t-plan{ width:42%; }
+  }
+  .funnel{ transition:opacity .18s ease, transform .18s ease; }
+  .funnel.switching{ opacity:.35; transform:translateY(4px); }
+
+  .market-carousel{ display:flex; flex-direction:column; align-items:center; gap:20px; width:100%; margin-top:12px; }
+  .market-scenario-eyebrow{ margin-bottom:0; }
+  .market-carousel-body{ display:flex; align-items:center; justify-content:center; gap:18px; width:100%; max-width:900px; }
+  .market-arrow{
+    flex-shrink:0; width:44px; height:44px; border-radius:50%; background:var(--panel); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    box-shadow:0 6px 16px -4px rgba(16,19,26,0.12), 0 2px 6px -2px rgba(16,19,26,0.08);
+    color:var(--ink); transition:transform .2s ease;
+  }
+  .market-arrow:hover{ transform:scale(1.06); }
+  .market-arrow:active{ transform:scale(0.94); }
+  .market-arrow svg{ width:18px; height:18px; }
+  .market-dots{ display:flex; align-items:center; gap:8px; }
+  .market-dot{ width:7px; height:7px; border-radius:50%; background:var(--line); cursor:pointer; transition:background .25s ease, transform .25s ease; }
+  .market-dot.active{ background:var(--accent); transform:scale(1.3); }
+  @media (max-width:640px){
+    .market-arrow{ width:38px; height:38px; }
+    .market-carousel-body{ gap:10px; }
+  }
+
+  .market-chart-wrap{ width:100%; max-width:760px; margin-top:20px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .market-chart-wrap .eyebrow{ margin-bottom:0; }
+  .market-chart-card{ width:100%; background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:24px 20px 14px; transition:opacity .18s ease, transform .18s ease; }
+  .market-chart-card.switching{ opacity:.35; transform:translateY(4px); }
+  .market-chart{ width:100%; height:auto; overflow:visible; display:block; }
+  .market-chart .axis-line{ stroke:var(--line); stroke-width:1; }
+  .market-chart .tick-label{ font-family:'JetBrains Mono', monospace; font-size:10.5px; fill:var(--ink-soft-light); }
+  .market-chart .value-label{ font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:500; fill:var(--accent); }
+  .market-chart .chart-dot{ fill:var(--accent); stroke:var(--panel); stroke-width:2; }
+
+  .market-bridge{ width:100%; max-width:700px; margin-top:20px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .market-bridge .eyebrow{ margin-bottom:0; }
+  .market-bridge-text{ font-size:clamp(14.5px,1.7vw,17px); line-height:1.65; color:var(--fg-soft); max-width:700px; text-align:center; }
+  #marketBridgeText{ transition:opacity .18s ease, transform .18s ease; }
+  #marketBridgeText.switching{ opacity:.35; transform:translateY(4px); }
+  #marketScenarioName, #marketChartCaption{ transition:opacity .18s ease; }
+  #marketScenarioName.switching, #marketChartCaption.switching{ opacity:.35; }
+
   @media (max-width:640px){
     .card-grid{ grid-template-columns:1fr; }
     .phone-frame{ width:230px; height:483px; }
@@ -465,6 +524,101 @@
         <div class="name">B2B2C-контракты</div>
         <div class="desc">Доступ для сотрудников, клиентов или жителей от компаний и городских программ</div>
       </div>
+    </div>
+  </section>
+
+  <section id="market">
+    <div class="eyebrow mono reveal">Рынок</div>
+    <h2 class="section-title reveal d1">От размера рынка — к честному плану</h2>
+
+    <div class="market-carousel reveal d2">
+      <div class="market-scenario-eyebrow eyebrow mono" id="marketScenarioName">Переезд</div>
+      <div class="market-carousel-body">
+        <button class="market-arrow" id="marketPrev" type="button" aria-label="Предыдущий сценарий">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div class="funnel" id="marketFunnel">
+          <div class="funnel-row">
+            <div class="funnel-bar t-tam">
+              <span class="funnel-label mono">TAM</span>
+              <span class="funnel-value display">3 000 млн ₽/год</span>
+            </div>
+            <p class="funnel-desc">Рынок сценария «переезд» в Петербурге. Пользователи сценария (~150 000 новых жителей/год, Петростат) × ценность сценария (~20 000 ₽ за первые 90 дней)</p>
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-bar t-sam">
+              <span class="funnel-label mono">SAM</span>
+              <span class="funnel-value display">1 800 млн ₽/год</span>
+            </div>
+            <p class="funnel-desc">Один город, доступные MVP-сегменты (60% от TAM — часть услуг вне гейтов PRD)</p>
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-bar t-som">
+              <span class="funnel-label mono">SOM</span>
+              <span class="funnel-value display">350 млн ₽/год</span>
+            </div>
+            <p class="funnel-desc">Реалистичный потолок при текущих каналах (design-партнёры)</p>
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-bar t-plan">
+              <span class="funnel-label mono">Наш план</span>
+              <span class="funnel-value display">56 млн ₽/год</span>
+            </div>
+            <p class="funnel-desc">Выручка платформы к 36 месяцу — осознанно маленький, проверяемый кусок воронки</p>
+          </div>
+        </div>
+        <button class="market-arrow" id="marketNext" type="button" aria-label="Следующий сценарий">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+      <div class="market-dots" id="marketDots">
+        <span class="market-dot active" data-i="0"></span>
+        <span class="market-dot" data-i="1"></span>
+        <span class="market-dot" data-i="2"></span>
+        <span class="market-dot" data-i="3"></span>
+      </div>
+    </div>
+
+    <div class="market-chart-wrap reveal d3">
+      <div class="eyebrow mono" id="marketChartCaption">Рост выручки платформы, 0–36 мес</div>
+      <div class="market-chart-card">
+        <svg class="market-chart" viewBox="0 0 740 300" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="marketAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#2F4BFF" stop-opacity="0.28"/>
+              <stop offset="1" stop-color="#2F4BFF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g transform="translate(20,16)">
+            <line class="axis-line" x1="0" y1="240" x2="700" y2="240"></line>
+            <path fill="url(#marketAreaGrad)" stroke="none" d="M0,240 L38.89,239.76 L97.22,238.08 L136.11,235.2 L175,228 L233.33,216 L291.67,199.2 L350,172.8 L466.67,108.24 L583.33,62.4 L700,13.73 L700,240 L0,240 Z"></path>
+            <path fill="none" stroke="#2F4BFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M0,240 L38.89,239.76 L97.22,238.08 L136.11,235.2 L175,228 L233.33,216 L291.67,199.2 L350,172.8 L466.67,108.24 L583.33,62.4 L700,13.73"></path>
+            <circle class="chart-dot" cx="0" cy="240" r="3.5"></circle>
+            <circle class="chart-dot" cx="38.89" cy="239.76" r="3.5"></circle>
+            <circle class="chart-dot" cx="97.22" cy="238.08" r="3.5"></circle>
+            <circle class="chart-dot" cx="136.11" cy="235.2" r="3.5"></circle>
+            <circle class="chart-dot" cx="175" cy="228" r="3.5"></circle>
+            <circle class="chart-dot" cx="233.33" cy="216" r="3.5"></circle>
+            <circle class="chart-dot" cx="291.67" cy="199.2" r="3.5"></circle>
+            <circle class="chart-dot" cx="350" cy="172.8" r="3.5"></circle>
+            <circle class="chart-dot" cx="466.67" cy="108.24" r="3.5"></circle>
+            <circle class="chart-dot" cx="583.33" cy="62.4" r="3.5"></circle>
+            <circle class="chart-dot" cx="700" cy="13.73" r="4.5"></circle>
+            <text class="value-label" id="chartLabel24" x="466.67" y="94" text-anchor="middle">2,7 млн ₽/мес</text>
+            <text class="value-label" id="chartLabel36" x="655" y="6" text-anchor="end">4,7 млн ₽/мес</text>
+            <text class="tick-label" x="0" y="262" text-anchor="start">0 мес</text>
+            <text class="tick-label" x="233.33" y="262" text-anchor="middle">12 мес</text>
+            <text class="tick-label" x="466.67" y="262" text-anchor="middle">24 мес</text>
+            <text class="tick-label" x="700" y="262" text-anchor="end">36 мес</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="market-bridge reveal d3">
+      <div class="eyebrow mono">Масштаб возможности</div>
+      <p class="market-bridge-text" id="marketBridgeText">Рынок сценария «Переезд» в одном Петербурге — около 3 млрд ₽/год. Наш 36-месячный план — осознанно маленький, проверяемый кусочек этой воронки, а не потолок возможностей.</p>
+      <p class="market-bridge-text">Каждый следующий шаг — второй город, соседние сценарии из карты продукта (недвижимость, авто, образование, карьера) — увеличивает TAM кратно, а не на проценты.</p>
     </div>
   </section>
 
@@ -1134,6 +1288,111 @@
     });
   }, { threshold: 0.2 });
   revealEls.forEach(el=>revealObserver.observe(el));
+
+  // ---- Market funnel carousel ----
+  const marketScenarios = [
+    {
+      name: "Переезд",
+      tam: {value: 3000, desc: "Пользователи сценария (~150 000 новых жителей/год, Петростат) × ценность сценария (~20 000 ₽ за первые 90 дней)"},
+      sam: {value: 1800, desc: "Один город, доступные MVP-сегменты (60% от TAM — часть услуг вне гейтов PRD)"},
+      som: {value: 350, desc: "Реалистичный потолок при текущих каналах (design-партнёры)"},
+      plan: {value: 56, desc: "Выручка платформы к 36 месяцу — осознанно маленький, проверяемый кусок воронки"},
+      growth: {m24: 2745000, m36: 4714000},
+      bridgeText: "Рынок сценария «Переезд» в одном Петербурге — около 3 млрд ₽/год. Наш 36-месячный план — осознанно маленький, проверяемый кусочек этой воронки, а не потолок возможностей."
+    },
+    {
+      name: "Недвижимость",
+      tam: {value: 1380, desc: "Пользователи сценария (~230 000 сделок аренды и вторичного рынка/год, оценка) × ценность сценария (~6 000 ₽ — подготовка документов и referral, не риелторская комиссия)"},
+      sam: {value: 828, desc: "Один город, доступные MVP-сегменты (60% от TAM)"},
+      som: {value: 161, desc: "Реалистичный потолок при текущих каналах"},
+      plan: {value: 26, desc: "Целевая выручка платформы к 36 месяцу"},
+      growth: {m24: 1274000, m36: 2189000},
+      bridgeText: "Рынок сценария «Недвижимость» в одном Петербурге — около 1,4 млрд ₽/год. Наш 36-месячный план — осознанно маленький, проверяемый кусочек этой воронки, а не потолок возможностей."
+    },
+    {
+      name: "Образование",
+      tam: {value: 16200, desc: "Пользователи сценария (~900 000 детей и взрослых на платных курсах/год, доля от статистики Росстата) × ценность сценария (~18 000 ₽ за пакет курсов)"},
+      sam: {value: 9720, desc: "Один город, доступные MVP-сегменты (60% от TAM)"},
+      som: {value: 1886, desc: "Реалистичный потолок при текущих каналах"},
+      plan: {value: 302, desc: "Целевая выручка платформы к 36 месяцу"},
+      growth: {m24: 14803000, m36: 25421000},
+      bridgeText: "Рынок сценария «Образование» в одном Петербурге — около 16,2 млрд ₽/год. Наш 36-месячный план — осознанно маленький, проверяемый кусочек этой воронки, а не потолок возможностей."
+    },
+    {
+      name: "Автомобиль",
+      tam: {value: 1050, desc: "Пользователи сценария (~150 000 сделок/год, оценка) × ценность сценария (~7 000 ₽ — проверка документов, referral на осмотр и страхование, не стоимость авто)"},
+      sam: {value: 630, desc: "Один город, доступные MVP-сегменты (60% от TAM)"},
+      som: {value: 122, desc: "Реалистичный потолок при текущих каналах"},
+      plan: {value: 20, desc: "Целевая выручка платформы к 36 месяцу"},
+      growth: {m24: 980000, m36: 1684000},
+      bridgeText: "Рынок сценария «Автомобиль» в одном Петербурге — около 1,05 млрд ₽/год. Наш 36-месячный план — осознанно маленький, проверяемый кусочек этой воронки, а не потолок возможностей."
+    }
+  ];
+  let marketIndex = 0;
+  let marketAnimating = false;
+  const marketFunnel = document.getElementById('marketFunnel');
+  const marketNameEl = document.getElementById('marketScenarioName');
+  const marketDots = document.querySelectorAll('.market-dot');
+  const marketChartCaption = document.getElementById('marketChartCaption');
+  const marketChartCard = document.querySelector('.market-chart-card');
+  const chartLabel24 = document.getElementById('chartLabel24');
+  const chartLabel36 = document.getElementById('chartLabel36');
+  const marketBridgeText = document.getElementById('marketBridgeText');
+  const MARKET_TRANSITION_MS = 180;
+
+  function formatMarketMonthly(v){
+    if(v >= 1000000){
+      return (v/1000000).toFixed(1).replace('.', ',') + ' млн ₽/мес';
+    }
+    return Math.round(v/1000) + ' тыс ₽/мес';
+  }
+  function formatMarketValue(v){
+    return v.toLocaleString('ru-RU').replace(/[  ]/g,' ') + ' млн ₽/год';
+  }
+  function renderMarketScenario(i){
+    const s = marketScenarios[i];
+    marketNameEl.textContent = s.name;
+    ['tam','sam','som','plan'].forEach(key=>{
+      const bar = marketFunnel.querySelector('.funnel-bar.t-'+key);
+      const row = bar.closest('.funnel-row');
+      bar.querySelector('.funnel-value').textContent = formatMarketValue(s[key].value);
+      row.querySelector('.funnel-desc').textContent = s[key].desc;
+    });
+    marketDots.forEach((d,idx)=>d.classList.toggle('active', idx===i));
+    marketChartCaption.textContent = 'Рост выручки платформы, 0–36 мес — ' + s.name;
+    chartLabel24.textContent = formatMarketMonthly(s.growth.m24);
+    chartLabel36.textContent = formatMarketMonthly(s.growth.m36);
+    marketBridgeText.textContent = s.bridgeText;
+  }
+  function goToMarketScenario(newIndex){
+    if(marketAnimating || newIndex===marketIndex) return;
+    marketAnimating = true;
+    marketFunnel.classList.add('switching');
+    marketChartCard.classList.add('switching');
+    marketBridgeText.classList.add('switching');
+    marketNameEl.classList.add('switching');
+    marketChartCaption.classList.add('switching');
+    setTimeout(()=>{
+      marketIndex = newIndex;
+      renderMarketScenario(marketIndex);
+      marketFunnel.classList.remove('switching');
+      marketChartCard.classList.remove('switching');
+      marketBridgeText.classList.remove('switching');
+      marketNameEl.classList.remove('switching');
+      marketChartCaption.classList.remove('switching');
+      marketAnimating = false;
+    }, MARKET_TRANSITION_MS);
+  }
+  document.getElementById('marketPrev').addEventListener('click', ()=>{
+    goToMarketScenario((marketIndex - 1 + marketScenarios.length) % marketScenarios.length);
+  });
+  document.getElementById('marketNext').addEventListener('click', ()=>{
+    goToMarketScenario((marketIndex + 1) % marketScenarios.length);
+  });
+  marketDots.forEach(dot=>{
+    dot.addEventListener('click', ()=>goToMarketScenario(parseInt(dot.dataset.i, 10)));
+  });
+  renderMarketScenario(0);
 </script>
 
 </body>
